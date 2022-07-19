@@ -55,9 +55,9 @@ def ivregress_2sls(df, y_var, regs, ev, inst, verbose=False):
         print("Variables in X matrix are")
         print(x_vars)
 
-    Z = S[z_vars].to_numpy()
-    X = S[x_vars].to_numpy()
-    y = S[y_var].to_numpy()
+    Z = S[z_vars].to_numpy()  # 2D array
+    X = S[x_vars].to_numpy()  # 2D array
+    y = S[y_var].to_numpy()  # 1D array
 
     beta_2sls, Var_beta_2sls = _ivregress(X, Z, y)  # TODO stopped here
 
