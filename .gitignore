@@ -163,3 +163,4 @@ cython_debug/
 scratch.py
 proj.Rproj
 .Rproj.user
+scratch.R
