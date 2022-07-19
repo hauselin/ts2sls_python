@@ -65,12 +65,12 @@ ivregress_2sls <- function(df, y_var, regs, ev, inst, verbose = FALSE) {
     results <- ivregress(X, Z, y) 
     
     std_err <- sqrt(diag(results$Var_beta_2sls))
-    
-    return(
-        data.frame(term = c("(Intercept)", x_vars[-1]),
-                   coef = results$beta_2sls, 
-                   stderr = std_err)
-           )
+    results <- data.frame(term = c("(Intercept)", x_vars[-1]),
+                          coef = results$beta_2sls, 
+                          stderr = std_err)
+    rownames(results) <- NULL
+    return(results)
+        
     
 }
 
