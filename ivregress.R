@@ -3,7 +3,7 @@ library(dplyr)
 
 reg <- function(X, y) {
     X <- as.data.frame(X)
-    X$const <- NULL
+    X$const <- NULL  # remove intercept because model.matrix function below includes it
     design_matrix <- model.matrix(~., X)
     mod <- lm(y ~ 0 + design_matrix)
     beta_hr <- coef(mod)
