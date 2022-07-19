@@ -132,7 +132,7 @@ def ts2sls(df1, df2, y_var, regs, ev, inst, verbose=False):
     ex_vars = list(set(regs) - set(ev))
 
     z_vars = ["_const"] + inst + ex_vars
-    x_vars = ["_const"] + regs
+    x_vars = ["_const"] + regs  # TODO continue here
 
     if verbose:
         print("Variables in Z matrix are")
