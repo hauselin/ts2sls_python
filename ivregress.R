@@ -2,6 +2,9 @@ library(dplyr)
 library(data.table)
 
 reg <- function(X, y) {
+    #' X: 2D matrix or dataframe of covariates/predictors
+    #' y: 1D vector of target/outcome variable
+    
     X <- as.data.frame(X)
     X$const <- NULL  # remove intercept because model.matrix function below includes it
     design_matrix <- model.matrix(~., X)
