@@ -1,5 +1,5 @@
-# library(broom)
 library(dplyr)
+library(data.table)
 
 reg <- function(X, y) {
     X <- as.data.frame(X)
