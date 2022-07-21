@@ -7,8 +7,8 @@ df1[, weight2 := weight * weight]
 df2 <- copy(df1)
 df1$mpg <- NA
 
-s1 <- df1
-s2 <- df2
+S1 <- df1
+S2 <- df2
 
 #%% iveregress - single instrument
 
@@ -20,4 +20,12 @@ inst <- "headroom"
 result <- ivregress_2sls(S, y_var, regs, ev, inst, verbose = T)
 result
 
+#%% t2sls - single instrument
+
+y_var <- "price"
+regs <- c("weight", "mpg")
+ev <- "mpg"
+inst <- "headroom"
+result <- ts2sls(S1, S2, y_var, regs, ev, inst)
+print(result)
 

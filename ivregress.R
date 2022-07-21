@@ -77,6 +77,59 @@ ivregress_2sls <- function(df, y_var, regs, ev, inst, verbose = FALSE) {
     
 }
 
+ts2sls_helper <- function(X2, X1, Z2, Z1, y1, y_z, ev_ind, verbose = FALSE){
+  X2 <- as.matrix(X2)
+  X1 <- as.matrix(X1)
+  Z2 <- as.matrix(Z2)
+  Z1 <- as.matrix(Z1)
+  y1 <- as.matrix(y1)
+  y_z <- as.matrix(y_z)
+  
+  tmp_z2t2_inv <- solve(t(Z2) %*% Z2)
+  tmp_z2tx2 <- t(Z2) %*% X2
+  X1_hat <- Z1 %*% (tmp_z2t2_inv %*% tmp_z2tx2)
+  beta_t2sls <- solve(t(X1_hat) %*% X1_hat) %*% (t(X1_hat) %*% y1)
+  
+  n1 <- nrow(Z1)
+  n2 <- nrow(Z2)
+  
+  beta_1s <- reg(Z2, y_z)
+  pred_y_z <- (Z1 %*% beta_1s)
+  
+  pred_X1 <- X1
+  pred_X1[, ev_ind] <- pred_y_z[, 1]
+  
+  k_p <- ncol(pred_X1)
+  eps <- y1 - pred_X1 %*% beta_t2sls
+  sigma_2 <- (t(eps) %*% eps) / (n1 - k_p)
+  if (verbose) { print(sigma_2)}
+  
+  Var_beta_2sls <- sigma_2[1] * solve(t(X1_hat) %*% X1_hat)
+  if (verbose){
+    print(Var_beta_2sls)
+    print(sqrt(diag(Var_beta_2sls)))
+  }
+  
+  k_q <- ncol(Z2)
+  pred_X2 <- X2
+  pred_y_z2 <- Z2 %*% beta_1s
+  pred_X2[, ev_ind] <- pred_y_z2[, 1]
+  eps_1s <- X2 - pred_X2
+  sigma_nu <- (t(eps_1s) %*% eps_1s) / (n2 - k_q)
+  if (verbose) { print(sigma_nu)}
+  
+  sigma_f <- sigma_2 + n1 / n2 * t(beta_t2sls) %*% ((sigma_nu) %*% beta_t2sls)
+  if (verbose) {print(sigma_f)}
+  Var_beta_ts2sls <- sigma_f[1] * solve(t(X1_hat) %*% X1_hat)
+  
+  if (verbose) {
+    print(Var_beta_ts2sls)
+    print(sqrt(diag(Var_beta_ts2sls)))
+  }
+  
+  return(list(beta_t2sls = beta_t2sls, Var_beta_ts2sls = Var_beta_ts2sls))
+}
+
 
 
 
@@ -91,7 +144,31 @@ ts2sls <- function(df1, df2, y_var, regs, ev, inst, verbose = FALSE) {
     ex_vars <- setdiff(regs, ev)
     
     z_vars <- c("const", inst, ex_vars)
-    x_vars <- c("const", regs)   # TODO continue here
+    x_vars <- c("const", regs) 
     
+    if (verbose){
+      print("Variables in Z matrix are")
+      print(z_vars)
+      print("Variables in X matrix are")
+      print(x_vars)
+    }
+    
+    Z2 <- select(S2, all_of(z_vars))
+    Z1 <- select(S1, all_of(z_vars))
+    X2 <- select(S2, all_of(x_vars))
+    X1 <- select(S1, all_of(x_vars))
+    y1 <- select(S1, all_of(y_var))
+    y_z <- select(S2, all_of(ev))
+    
+    ev_ind <- match(ev, x_vars)
+    
+    results <- ts2sls_helper(X2, X1, Z2, Z1, y1, y_z, ev_ind)
+    std_err <- sqrt(diag(results$Var_beta_ts2sls))
+    
+    results <- data.frame(term = c("(Intercept)", x_vars[-1]),
+                          coef = results$beta_t2sls, 
+                          stderr = std_err)
+    rownames(results) <- NULL
+    return (results)
     
 }
