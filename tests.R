@@ -23,6 +23,8 @@ feols(price ~ weight | mpg ~ headroom, data = S)
 
 #%% t2sls - single instrument
 
+# mpg is missing in S1
+
 y_var <- "price"
 regs <- c("weight", "mpg")
 endo_var <- "mpg"

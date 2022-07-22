@@ -45,12 +45,12 @@ ivregress <- function(X, Z, y, verbose = FALSE) {
 }
 
 
-ivregress_2sls <- function(df, y_var, regs, ev, instruments, verbose = FALSE) {
+ivregress_2sls <- function(df, y_var, regs, endo_var, instruments, verbose = FALSE) {
     S <- copy(df)
     S$const <- 1
     
     # exogenous variables
-    ex_vars <- setdiff(regs, ev)
+    ex_vars <- setdiff(regs, endo_var)
     
     z_vars <- c("const", instruments, ex_vars)
     x_vars <- c("const", regs)
@@ -74,8 +74,6 @@ ivregress_2sls <- function(df, y_var, regs, ev, instruments, verbose = FALSE) {
                           stderr = std_err)
     rownames(results) <- NULL
     return(results)
-        
-    
 }
 
 ts2sls_helper <- function(X2, X1, Z2, Z1, y1, y_z, ev_ind, verbose = FALSE){
@@ -86,10 +84,11 @@ ts2sls_helper <- function(X2, X1, Z2, Z1, y1, y_z, ev_ind, verbose = FALSE){
   y1 <- as.matrix(y1)
   y_z <- as.matrix(y_z)
   
-  tmp_z2t2_inv <- solve(t(Z2) %*% Z2)
-  tmp_z2tx2 <- t(Z2) %*% X2
+  # Inoue & Solon 2010 eq.10
+  tmp_z2t2_inv <- solve(t(Z2) %*% Z2)  # (Z2'Z2)^-1
+  tmp_z2tx2 <- t(Z2) %*% X2  # Z2' (Z2'Z2)^-1
   X1_hat <- Z1 %*% (tmp_z2t2_inv %*% tmp_z2tx2)
-  beta_t2sls <- solve(t(X1_hat) %*% X1_hat) %*% (t(X1_hat) %*% y1)
+  beta_t2sls <- solve(t(X1_hat) %*% X1_hat) %*% (t(X1_hat) %*% y1)  # eq.10
   
   n1 <- nrow(Z1)
   n2 <- nrow(Z2)
@@ -167,9 +166,9 @@ ts2sls <- function(df1, df2, y_var, regs, endo_var, instruments, verbose = FALSE
     std_err <- sqrt(diag(results$Var_beta_ts2sls))
     
     results <- data.frame(term = c("(Intercept)", x_vars[-1]),
-                          coef = results$beta_t2sls, 
+                          coef = as.numeric(results$beta_t2sls), 
                           stderr = std_err)
     rownames(results) <- NULL
-    return (results)
+    return(results)
     
 }
