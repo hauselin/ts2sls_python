@@ -16,8 +16,8 @@ S <- df2
 y_var  <- "price"
 regs <- c("weight", "mpg")
 endo_var <- "mpg"
-inst <- "headroom"
-result <- ivregress_2sls(S, y_var, regs, endo_var, inst, verbose = T)
+instruments <- "headroom"
+result <- ivregress_2sls(S, y_var, regs, endo_var, instruments, verbose = T)
 result
 feols(price ~ weight | mpg ~ headroom, data = S)
 
@@ -26,7 +26,7 @@ feols(price ~ weight | mpg ~ headroom, data = S)
 y_var <- "price"
 regs <- c("weight", "mpg")
 endo_var <- "mpg"
-inst <- "headroom"
-result <- ts2sls(S1, S2, y_var, regs, endo_var, inst)
+instruments <- "headroom"
+result <- ts2sls(S1, S2, y_var, regs, endo_var, instruments)
 print(result)
 

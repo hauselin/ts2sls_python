@@ -45,14 +45,14 @@ ivregress <- function(X, Z, y, verbose = FALSE) {
 }
 
 
-ivregress_2sls <- function(df, y_var, regs, ev, inst, verbose = FALSE) {
+ivregress_2sls <- function(df, y_var, regs, ev, instruments, verbose = FALSE) {
     S <- copy(df)
     S$const <- 1
     
     # exogenous variables
     ex_vars <- setdiff(regs, ev)
     
-    z_vars <- c("const", inst, ex_vars)
+    z_vars <- c("const", instruments, ex_vars)
     x_vars <- c("const", regs)
     
     if (verbose) {
@@ -134,7 +134,7 @@ ts2sls_helper <- function(X2, X1, Z2, Z1, y1, y_z, ev_ind, verbose = FALSE){
 
 
 
-ts2sls <- function(df1, df2, y_var, regs, ev, inst, verbose = FALSE) {
+ts2sls <- function(df1, df2, y_var, regs, endo_var, instruments, verbose = FALSE) {
     S1 <- copy(df1)
     S2 <- copy(df2)
     
@@ -142,9 +142,9 @@ ts2sls <- function(df1, df2, y_var, regs, ev, inst, verbose = FALSE) {
     S2$const <- 1
     
     # exogenous variables
-    ex_vars <- setdiff(regs, ev)
+    ex_vars <- setdiff(regs, endo_var)
     
-    z_vars <- c("const", inst, ex_vars)
+    z_vars <- c("const", instruments, ex_vars)
     x_vars <- c("const", regs) 
     
     if (verbose){
@@ -159,11 +159,11 @@ ts2sls <- function(df1, df2, y_var, regs, ev, inst, verbose = FALSE) {
     X2 <- select(S2, all_of(x_vars))
     X1 <- select(S1, all_of(x_vars))
     y1 <- select(S1, all_of(y_var))
-    y_z <- select(S2, all_of(ev))
+    y_z <- select(S2, all_of(endo_var))
     
-    ev_ind <- match(ev, x_vars)
+    endo_var_ind <- match(endo_var, x_vars)
     
-    results <- ts2sls_helper(X2, X1, Z2, Z1, y1, y_z, ev_ind)
+    results <- ts2sls_helper(X2, X1, Z2, Z1, y1, y_z, endo_var_ind)
     std_err <- sqrt(diag(results$Var_beta_ts2sls))
     
     results <- data.frame(term = c("(Intercept)", x_vars[-1]),
