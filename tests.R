@@ -1,5 +1,5 @@
 rm(list = ls())
-library(data.table)
+library(data.table); library(fixest)
 source("ivregress.R")
 
 df1 <- fread("auto_data.csv")
@@ -15,17 +15,18 @@ S2 <- df2
 S <- df2
 y_var  <- "price"
 regs <- c("weight", "mpg")
-ev <- "mpg"
+endo_var <- "mpg"
 inst <- "headroom"
-result <- ivregress_2sls(S, y_var, regs, ev, inst, verbose = T)
+result <- ivregress_2sls(S, y_var, regs, endo_var, inst, verbose = T)
 result
+feols(price ~ weight | mpg ~ headroom, data = S)
 
 #%% t2sls - single instrument
 
 y_var <- "price"
 regs <- c("weight", "mpg")
-ev <- "mpg"
+endo_var <- "mpg"
 inst <- "headroom"
-result <- ts2sls(S1, S2, y_var, regs, ev, inst)
+result <- ts2sls(S1, S2, y_var, regs, endo_var, inst)
 print(result)
 

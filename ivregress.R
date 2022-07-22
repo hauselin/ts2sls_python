@@ -8,7 +8,7 @@ reg <- function(X, y) {
     X <- as.data.frame(X)
     X$const <- NULL  # remove intercept because model.matrix function below includes it
     design_matrix <- model.matrix(~., X)
-    mod <- lm(y ~ 0 + design_matrix)
+    mod <- lm(y ~ 0 + design_matrix)  # b = (X'X)^-1 (X'y)
     beta_hr <- coef(mod)
     names(beta_hr) <- c("(Intercept)", names(X))
     return(beta_hr)
@@ -17,20 +17,21 @@ reg <- function(X, y) {
 ivregress <- function(X, Z, y, verbose = FALSE) {
     X <- as.matrix(X)
     Z <- as.matrix(Z)
-    tmp1 <- Z %*% solve(t(Z) %*% Z)
+    tmp1 <- Z %*% solve(t(Z) %*% Z) # Z (Z'Z)^-1
     
     if (verbose) print(dim(tmp1))
     
-    X_hat <- tmp1 %*% (t(Z) %*% X)
-    beta_2sls <- reg(X_hat, y)
+    X_hat <- tmp1 %*% (t(Z) %*% X)  # Z (Z'Z)^-1 (Z'X)  # stage 1 
+    beta_2sls <- reg(X_hat, y)  # stage 2 (Inoue & Solon 2010 eq.3)
     
     if (verbose) print(beta_2sls)
     
-    Pz <- tmp1 %*% t(Z)
+    
+    Pz <- tmp1 %*% t(Z)  # Z (Z'Z)^-1 (Z')
     
     if (verbose) print(dim(Pz))
     
-    eps <- y - (X %*% beta_2sls)
+    eps <- y - (X %*% beta_2sls)  # error
     sigma_2 <- (t(eps) %*% eps) / dim(X)[1]
     
     if (verbose) print(sigma_2)
