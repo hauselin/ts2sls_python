@@ -104,6 +104,7 @@ ts2sls_helper <- function(X2, X1, Z2, Z1, y1, y_z, ev_ind, verbose = FALSE){
   sigma_2 <- (t(eps) %*% eps) / (n1 - k_p)
   if (verbose) { print(sigma_2)}
   
+  # hmmm Var_beta_2sls is not used anywhere later?
   Var_beta_2sls <- sigma_2[1] * solve(t(X1_hat) %*% X1_hat)
   if (verbose){
     print(Var_beta_2sls)
