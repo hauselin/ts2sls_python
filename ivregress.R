@@ -15,6 +15,8 @@ reg <- function(X, y) {
 }
 
 ivregress <- function(X, Z, y, verbose = FALSE) {
+    # Z: matrix of valid instrumental variables
+    
     X <- as.matrix(X)
     Z <- as.matrix(Z)
     tmp1 <- Z %*% solve(t(Z) %*% Z) # Z (Z'Z)^-1
@@ -77,9 +79,9 @@ ivregress_2sls <- function(df, y_var, regs, endo_var, instruments, verbose = FAL
 }
 
 ts2sls_helper <- function(X2, X1, Z2, Z1, y1, y_z, ev_ind, verbose = FALSE){
-  X2 <- as.matrix(X2)
+  X2 <- as.matrix(X2) #contain k exogenous regressors and p endogenous regressors
   X1 <- as.matrix(X1)
-  Z2 <- as.matrix(Z2)
+  Z2 <- as.matrix(Z2) #contain k exogneous regressors and q instrumental variables
   Z1 <- as.matrix(Z1)
   y1 <- as.matrix(y1)
   y_z <- as.matrix(y_z)
