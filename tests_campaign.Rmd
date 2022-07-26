@@ -1,0 +1,154 @@
+---
+title: "tests_campaign"
+author: "Andi Ahlers"
+date: '2022-06-14'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r packages}
+rm(list = ls())
+library(data.table)
+source("ivregress.R")
+```
+
+
+```{r read in data}
+df1 <- fread("/Users/mahlers/Desktop/Research/twitterads/data_ukraine/users_treatment.csv")
+df1 <- df1[,c("id_str", "group", "condition")]
+
+df2 <- fread("/Users/mahlers/Desktop/Research/twitterads/data_ukraine/temp_reach_avgs.csv")
+
+full_df <- merge(df1, df2, by = "group")
+```
+
+```{r simulate outcome}
+set.seed(1)
+full_df[condition == "t", `:=`(outcome = rnorm(.N, .1, 1), assign = 1.0, cov = rnorm(.N, 0, .01))]
+full_df[condition == "c", `:=`(outcome = rnorm(.N, 0, 1), assign = 0.0, cov = rnorm(.N, 0, .01))]
+
+#full_df[condition == "c", avg_reach := 0]
+
+```
+
+```{r add control group to ad group level outcome}
+set.seed(1)
+df2[, `:=`(assign = 1.0, cov = rnorm(.N, 0, .01))]
+
+c_df <- copy(df2)
+set.seed(1)
+c_df[, `:=`(avg_reach = 0, assign = 0.0, cov = rnorm(.N, 0, .01))]
+
+group_df <- rbind(df2, c_df)
+
+
+```
+
+Z: Treatment Assignment
+D: Treatment Received (Compliance/Non-Compliance)
+Y: Outcome 
+
+Z serves as the 'instrument'
+
+
+```{r set dfs}
+df_temp <- copy(full_df)
+df_temp[,avg_reach:=NA]
+
+S1 <- df_temp
+S2 <- group_df
+
+df_3 <- copy(full_df)
+df_3[condition == "c", avg_reach := 0]
+
+S_1 <- df_3
+S_2 <- df_3
+```
+
+where:
+* S1 is the dataframe with sample 1 - this may not have the endogenous variable
+* S2 is the dataframe with sample 2 - this may not have the dependent variable
+* y_var is the name of dependent variable
+* regs is the list of regressors or independent variables
+* ev is endogenous variable provided as a list with 1 element
+* inst is the list of exogenous instruments
+
+```{r ts 2sls}
+
+#%% t2sls - single instrument
+y_var <- "outcome"
+regs <- c("cov", "avg_reach") 
+ev <- "avg_reach"
+inst <- "assign"
+result <- ts2sls(S1, S2, y_var, regs, ev, inst)
+print("Two Sample Two Stage with Group Level as Sample 2")
+print(result)
+
+result_ind <- ts2sls(S_1, S_2, y_var, regs, ev, inst)
+print("Two Sample Two Stage with All Individual Level (Same Sample")
+print(result_ind)
+
+#try_lm <- lm(outcome ~ avg_reach, data = full_df)
+#summary(try_lm)
+
+
+res_1sample <- ivregress_2sls(df_3, y_var, regs, ev, inst, verbose = FALSE)
+print(res_1sample)
+
+.07/.015
+.676/.144
+.51/.126
+
+```
+
+
+#%% iveregress - single instrument
+
+S <- df2
+y_var  <- "price"
+regs <- c("weight", "mpg")
+ev <- "mpg"
+inst <- "headroom"
+result <- ivregress_2sls(S, y_var, regs, ev, inst, verbose = T)
+result
+
+
+
+
+
+```{r check auto data}
+
+df1 <- fread("auto_data.csv")
+df1[, weight2 := weight * weight]
+df2 <- copy(df1)
+df1$mpg <- NA
+
+S1 <- df1
+S2 <- df2
+
+#%% iveregress - single instrument
+
+S <- df2
+y_var  <- "price"
+regs <- c("weight", "mpg")
+ev <- "mpg"
+inst <- "headroom"
+result <- ivregress_2sls(S, y_var, regs, ev, inst, verbose = T)
+result
+
+#%% t2sls - single instrument
+
+y_var <- "price"
+regs <- c("weight", "mpg")
+ev <- "mpg"
+inst <- "headroom"
+result <- ts2sls(S1, S2, y_var, regs, ev, inst)
+print(result)
+
+```
+
+
