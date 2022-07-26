@@ -103,7 +103,7 @@ ts2sls_helper <- function(X2, X1, Z2, Z1, y1, y_z, ev_ind, verbose = FALSE){
   
   k_p <- ncol(pred_X1)
   eps <- y1 - pred_X1 %*% beta_t2sls
-  sigma_2 <- (t(eps) %*% eps) / (n1 - k_p)
+  sigma_2 <- (t(eps) %*% eps) / (n1 - k_p) #what is this ??
   if (verbose) { print(sigma_2)}
   
   # hmmm Var_beta_2sls is not used anywhere later?
@@ -118,9 +118,9 @@ ts2sls_helper <- function(X2, X1, Z2, Z1, y1, y_z, ev_ind, verbose = FALSE){
   pred_y_z2 <- Z2 %*% beta_1s
   pred_X2[, ev_ind] <- pred_y_z2[, 1]
   eps_1s <- X2 - pred_X2
-  sigma_nu <- (t(eps_1s) %*% eps_1s) / (n2 - k_q)
+  sigma_nu <- (t(eps_1s) %*% eps_1s) / (n2 - k_q) #what is this ??
   if (verbose) { print(sigma_nu)}
-  
+  #TODO: what is sigma_f ??
   sigma_f <- sigma_2 + n1 / n2 * t(beta_t2sls) %*% ((sigma_nu) %*% beta_t2sls)
   if (verbose) {print(sigma_f)}
   Var_beta_ts2sls <- sigma_f[1] * solve(t(X1_hat) %*% X1_hat)
@@ -161,7 +161,7 @@ ts2sls <- function(df1, df2, y_var, regs, endo_var, instruments, verbose = FALSE
     X2 <- select(S2, all_of(x_vars))
     X1 <- select(S1, all_of(x_vars))
     y1 <- select(S1, all_of(y_var))
-    y_z <- select(S2, all_of(endo_var))
+    y_z <- select(S2, all_of(endo_var)) 
     
     endo_var_ind <- match(endo_var, x_vars)
     
