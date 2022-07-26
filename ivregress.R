@@ -90,7 +90,7 @@ ts2sls_helper <- function(X2, X1, Z2, Z1, y1, y_z, ev_ind, verbose = FALSE){
   # compute moments/cov with just sample2
   tmp_z2t2_inv <- solve(t(Z2) %*% Z2)  # (Z2'Z2)^-1
   tmp_z2tx2 <- t(Z2) %*% X2  # Z2' (Z2'Z2)^-1
-  # use sample2 moments to compute predicted sample's X1_hat (because sample1 doesn't not have endogenous variable)
+  # use sample2 moments to compute predicted sample's X1_hat (because sample1 doesn't have endogenous variable)
   X1_hat <- Z1 %*% (tmp_z2t2_inv %*% tmp_z2tx2)
   beta_t2sls <- solve(t(X1_hat) %*% X1_hat) %*% (t(X1_hat) %*% y1)  # eq.10
   
