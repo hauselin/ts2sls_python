@@ -132,7 +132,7 @@ ts2sls_helper <- function(X2, X1, Z2, Z1, y1, y_z, ev_ind, verbose = FALSE){
     print(sqrt(diag(Var_beta_ts2sls)))
   }
   
-  return(list(beta_t2sls = beta_t2sls, Var_beta_ts2sls = Var_beta_ts2sls))
+  return(list(beta_t2sls = beta_t2sls, Var_beta_ts2sls = Var_beta_ts2sls, X1_hat = X1_hat))
 }
 
 
@@ -170,10 +170,10 @@ ts2sls <- function(df1, df2, y_var, regs, endo_var, instruments, verbose = FALSE
     results <- ts2sls_helper(X2, X1, Z2, Z1, y1, y_z, endo_var_ind)
     std_err <- sqrt(diag(results$Var_beta_ts2sls))
     
-    results <- data.frame(term = c("(Intercept)", x_vars[-1]),
+    results_df <- data.frame(term = c("(Intercept)", x_vars[-1]),
                           coef = as.numeric(results$beta_t2sls), 
                           stderr = std_err)
-    rownames(results) <- NULL
-    return(results)
+    rownames(results_df) <- NULL
+    return(list(results_df, results$X1_hat))
     
 }
