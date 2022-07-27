@@ -105,12 +105,17 @@ ts2sls_helper <- function(X2, X1, Z2, Z1, y1, y_z, ev_ind, verbose = FALSE){
   
   k_p <- ncol(pred_X1)
   eps <- y1 - pred_X1 %*% beta_t2sls
-  sigma_2 <- (t(eps) %*% eps) / (n1 - k_p) #what is this ??
-  if (verbose) { print(sigma_2)}
+  # (e_1 + beta %*% nu_1)^2 (basically 2sls eps^2 adjusted for bias)
+  sigma_2 <- (t(eps) %*% eps) / (n1 - k_p) #what is this ?? # this is a single value not a matrix
+  if (verbose) { 
+    print("sigma_2")
+    print(sigma_2)
+  }
   
-  # hmmm Var_beta_2sls is not used anywhere later?
+  # hmmm Var_beta_2sls is not used anywhere later? most likely used to demonstrate what's wrong if we only use sigma_2 instead of sigma_f
   Var_beta_2sls <- sigma_2[1] * solve(t(X1_hat) %*% X1_hat)
   if (verbose){
+    print("Variance of beta_2sls")
     print(Var_beta_2sls)
     print(sqrt(diag(Var_beta_2sls)))
   }
@@ -120,11 +125,18 @@ ts2sls_helper <- function(X2, X1, Z2, Z1, y1, y_z, ev_ind, verbose = FALSE){
   pred_y_z2 <- Z2 %*% beta_1s
   pred_X2[, ev_ind] <- pred_y_z2[, 1]
   eps_1s <- X2 - pred_X2
-  sigma_nu <- (t(eps_1s) %*% eps_1s) / (n2 - k_q) #what is this ??
-  if (verbose) { print(sigma_nu)}
-  #TODO: what is sigma_f ??
+  # nu_2 %*% nu_2_t adjusted for bias (basically prediction error^2 from equation 9)
+  sigma_nu <- (t(eps_1s) %*% eps_1s) / (n2 - k_q) #what is this ?? 
+  if (verbose) { 
+    print("sigma_nu")
+    print(sigma_nu)
+  }
+  #TODO: what is sigma_f ?? # equation 16, full covariance matrix.
   sigma_f <- sigma_2 + n1 / n2 * t(beta_t2sls) %*% ((sigma_nu) %*% beta_t2sls)
-  if (verbose) {print(sigma_f)}
+  if (verbose) {
+    print("sigma_f")
+    print(sigma_f)
+  }
   Var_beta_ts2sls <- sigma_f[1] * solve(t(X1_hat) %*% X1_hat)
   
   if (verbose) {
@@ -165,9 +177,9 @@ ts2sls <- function(df1, df2, y_var, regs, endo_var, instruments, verbose = FALSE
     y1 <- select(S1, all_of(y_var))
     y_z <- select(S2, all_of(endo_var)) 
     
-    endo_var_ind <- match(endo_var, x_vars)
+    endo_var_ind <- match(endo_var, x_vars) # indices of endogeneous variables
     
-    results <- ts2sls_helper(X2, X1, Z2, Z1, y1, y_z, endo_var_ind)
+    results <- ts2sls_helper(X2, X1, Z2, Z1, y1, y_z, endo_var_ind, verbose)
     std_err <- sqrt(diag(results$Var_beta_ts2sls))
     
     results_df <- data.frame(term = c("(Intercept)", x_vars[-1]),
