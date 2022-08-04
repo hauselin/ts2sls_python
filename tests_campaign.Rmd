@@ -13,6 +13,9 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r packages}
 rm(list = ls())
 library(data.table)
+library(ggplot2)
+library(glue)
+
 source("ivregress.R")
 ```
 
@@ -21,15 +24,41 @@ source("ivregress.R")
 df1 <- fread("/Users/mahlers/Desktop/Research/twitterads/data_ukraine/users_treatment.csv")
 df1 <- df1[,c("id_str", "group", "condition")]
 
+#read in individual covariate data
+feats <- fread("campaign_data/features_ad_groups.csv")
+feats <- feats[,c("id_str", "classifier_score", "days_since_create",
+                  "friend_follow_ratio", "statuses_count")]
+
+#read in activity data and keep only subcampaign 4
+activity <- fread("campaign_data/user_activity.csv")
+activity <- activity[,c("id_str", "subcamp04_tweets")]
+
+#read in average reach for each ad group (avg over the first 25 days of campaigns)
 df2 <- fread("/Users/mahlers/Desktop/Research/twitterads/data_ukraine/temp_reach_avgs.csv")
 
-full_df <- merge(df1, df2, by = "group")
 ```
+
+```{r merge covs together}
+feats <- merge(feats, activity, by = "id_str")
+
+full_df <- merge(df1, df2, by = "group")
+full_df <- merge(feats, full_df, by = "id_str")
+
+```
+
+```{r get average classifier score for each group}
+group_cov <- full_df[, .(classifier_score = mean(classifier_score), days_since_create = mean(days_since_create),
+                         friend_follow_ratio = mean(friend_follow_ratio), statuses_count = mean(statuses_count),
+                         subcamp04_tweets = mean(subcamp04_tweets)), by = c("group", "condition")]
+
+```
+
 
 ```{r simulate outcome}
 set.seed(1)
-full_df[condition == "t", `:=`(outcome = rnorm(.N, .1, 1), assign = 1.0, cov = rnorm(.N, 0, .01))]
-full_df[condition == "c", `:=`(outcome = rnorm(.N, 0, 1), assign = 0.0, cov = rnorm(.N, 0, .01))]
+full_df[condition == "t", `:=`(outcome = rnorm(.N, .1, 1), assign = 1.0)] 
+                               #cov = rnorm(.N, 0, .01))]
+full_df[condition == "c", `:=`(outcome = rnorm(.N, 0, 1), assign = 0.0, avg_reach = 0)]
 
 #full_df[condition == "c", avg_reach := 0]
 
@@ -37,13 +66,14 @@ full_df[condition == "c", `:=`(outcome = rnorm(.N, 0, 1), assign = 0.0, cov = rn
 
 ```{r add control group to ad group level outcome}
 set.seed(1)
-df2[, `:=`(assign = 1.0, cov = rnorm(.N, 0, .01))]
+df2[, `:=`(condition = "t", assign = 1.0)]
 
 c_df <- copy(df2)
 set.seed(1)
-c_df[, `:=`(avg_reach = 0, assign = 0.0, cov = rnorm(.N, 0, .01))]
+c_df[, `:=`(condition = "c", avg_reach = 0, assign = 0.0)]
 
 group_df <- rbind(df2, c_df)
+group_df <- merge(group_df, group_cov, by = c("group", "condition"))
 
 ```
 
@@ -60,11 +90,9 @@ df_temp[,avg_reach:=NA]
 S1 <- df_temp
 S2 <- group_df
 
-df_3 <- copy(full_df)
-df_3[condition == "c", avg_reach := 0]
+S_1 <- full_df
+S_2 <- full_df
 
-S_1 <- df_3
-S_2 <- df_3
 ```
 
 where:
@@ -79,7 +107,7 @@ where:
 
 #%% t2sls - single instrument
 y_var <- "outcome"
-regs <- c("cov", "avg_reach") 
+regs <- c("classifier_score", "avg_reach", "days_since_create", "friend_follow_ratio", "statuses_count", "subcamp04_tweets") 
 ev <- "avg_reach"
 inst <- "assign"
 
@@ -97,17 +125,107 @@ x2_preds <- data.frame(result_ind[2])
 #summary(try_lm)
 
 #regular 2SLS where users in same ad group are assigned same reach value
-res_1sample <- ivregress_2sls(df_3, y_var, regs, ev, inst, verbose = FALSE)
+res_1sample <- ivregress_2sls(full_df, y_var, regs, ev, inst, verbose = FALSE)
 print(res_1sample)
 
 .07/.015
 .676/.144
 .51/.126
 
+print(result[1])
+print(res_1sample)
+
+```
+
+```{r take xhat and run regular 2SLS with it}
+
+xhat_full_df <- copy(full_df)
+xhat_full_df <- xhat_full_df[,-"avg_reach"]
+setDT(xhat_full_df)
+xhat_full_df[,avg_reach := x_preds$avg_reach]
+
+#regular 2SLS where users in same ad group are assigned same reach value
+xhat_2sls <- ivregress_2sls(xhat_full_df, y_var, regs, ev, inst, verbose = FALSE)
+print(xhat_2sls)
+
+
+x_preds %>% select("avg_reach", "id_str")
+
+
 ```
 
 
-#%% iveregress - single instrument
+```{r look at predicted reach}
+results_df <- copy(full_df)
+results_df$TSgrp_preds <- x_preds$avg_reach
+results_df$TSind_preds <- x2_preds$avg_reach
+
+#aggregate predicted results at the group level to compare with observed reach 
+
+group_results <- results_df[, .(avg_grp_pred = mean(TSgrp_preds), avg_ind_pred = mean(TSind_preds), avg_class_score = mean(classifier_score)), by = c("group", "condition")]
+group_results <- merge(group_results, group_df, by = c("group", "condition"))
+
+```
+
+```{r compare predicted reach with observed}
+
+ggplot(group_results, aes(x = avg_reach, y = avg_grp_pred)) + geom_point() + ggtitle("Observed vs Average Predicted for Group TS2SLS") + xlab("Observed Group Reach") + 
+    ylab ("Average of TS2SLS Predictions")
+
+ggplot(group_results, aes(x = avg_reach, y = avg_ind_pred)) + geom_point() + ggtitle("Observed vs Average Predicted for Individual TS2SLS") + xlab("Observed Group Reach") + 
+    ylab ("Average of TS2SLS Predictions")
+
+```
+
+
+```{r preds by ad group}
+
+ggplot(results_df[condition == "t"], aes(x = group, y = TSgrp_preds)) + geom_point() + 
+    ggtitle("Predicted Indidivual Reach by Ad Group (Treatment)") + xlab("Group") + 
+    ylab ("Individual TS2SLS Predictions") + 
+    geom_point(data = group_results[condition == "t"], aes(x = group, y = avg_reach), color = "brown2")
+
+ ggplot(results_df[condition == "c"], aes(x = group, y = TSgrp_preds)) + geom_point() + 
+    ggtitle("Predicted Indidivual Reach by Ad Group (Control)") + xlab("Group") + 
+    ylab ("Individual TS2SLS Predictions") + 
+    geom_point(data = group_results[condition == "t"], aes(x = group, y = avg_reach), 
+               color = "darkturquoise")
+
+
+```
+
+
+```{r look at distributions of the predicted reach within each ad group}
+
+treat_plots <- c()
+for (i in 1:27){
+    ad_grp <- i - 1
+    temp_df <- results_df[group == i & condition == "t"]
+    
+    p <- ggplot(temp_df, aes(x = TSgrp_preds)) +
+        geom_histogram(binwidth = .0075) + labs(title = glue("Ad Group {ad_grp} Treatment"))
+    treat_plots[[i]] <- p
+}
+
+cont_plots <- c()
+for (i in 1:27){
+    ad_grp <- i - 1
+    temp_df <- results_df[group == i & condition == "c"]
+    
+    p <- ggplot(temp_df, aes(x = TSgrp_preds)) +
+        geom_histogram(binwidth = .0075) + labs(title = glue("Ad Group {ad_grp} Control"))
+    cont_plots[[i]] <- p
+}
+
+
+treat_plots
+cont_plots
+
+```
+
+
+```{r auto data, eval = FALSE}
+# iveregress - single instrument
 
 S <- df2
 y_var  <- "price"
@@ -117,11 +235,11 @@ inst <- "headroom"
 result <- ivregress_2sls(S, y_var, regs, ev, inst, verbose = T)
 result
 
+```
 
 
 
-
-```{r check auto data}
+```{r check auto data, eval = FALSE}
 
 df1 <- fread("auto_data.csv")
 df1[, weight2 := weight * weight]
