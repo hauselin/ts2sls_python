@@ -18,10 +18,10 @@ source("ivregress.R")
 
 
 ```{r read in data}
-df1 <- fread("/Users/mahlers/Desktop/Research/twitterads/data_ukraine/users_treatment.csv")
+df1 <- fread("../twitterads/data_ukraine/users_treatment.csv")
 df1 <- df1[,c("id_str", "group", "condition")]
 
-df2 <- fread("/Users/mahlers/Desktop/Research/twitterads/data_ukraine/temp_reach_avgs.csv")
+df2 <- fread("../twitterads/data_ukraine/temp_reach_avgs.csv")
 
 full_df <- merge(df1, df2, by = "group")
 ```
@@ -149,6 +149,82 @@ ev <- "mpg"
 inst <- "headroom"
 result <- ts2sls(S1, S2, y_var, regs, ev, inst)
 print(result)
+
+```
+
+## Two Stage Bootstrap
+
+**Two stage**
+
+```{r}
+library(MASS)  
+
+df1 <- fread("../twitterads/data_ukraine/users_treatment.csv")
+df1 <- df1[,c("id_str", "group", "condition")]
+
+set.seed(02139)
+Z <- rep(c(0, 1), 27)
+D <- rbeta(54,2,5) * 0.4
+D[Z == 0] <- 0
+Y <- floor(rbeta(17049, 1, 50) * 100)
+
+df1$Y <- Y
+
+
+df2 <- data.frame(Z, D, rep(seq(1, 27), each = 2), rep(c("c", "t"), 27), seq(1, 54))
+names(df2) <- c("Z", "D", "group", "condition", "group_name")
+
+# currently no fixed effect involved
+glm_2stage <- function(df1, df2){
+  stage1 <- glm(D~Z, df2, family = "gaussian")
+  stage1_predicted <- predict.lm(stage1, df2)
+  
+  # estimate D_hat
+  df <- left_join(df1, df2, by = c("group", "condition"))
+  df$D_hat <- sapply(df$group_name, function(x) stage1_predicted[x])
+  # set D_hat to 0 for control group (?)
+  df$D_hat <- ifelse(df$condition == "c", 0, df1$D_hat)
+  
+  # calculate residuals for residuals inclusion
+  df$residuals <- sapply(df$group_name, function(x) stage1$residuals[x])
+  
+  stage2 <- glm(Y ~ D_hat + residuals, df, family = "quasipoisson")
+  return(summary(stage2)$coefficients)
+}
+```
+
+**Bootstrap**
+
+```{r}
+B <- 100
+coefficients <- list()
+pairwise <- TRUE
+for (b in 1:B){
+  # sample ad group level data frame
+  if (pairwise){
+    trt_idx <- sample(1:27, 27, replace = T)
+    df2_b <- rbind(df2[df2$condition == "t",][trt_idx, ], df2[df2$condition == "c",][trt_idx, ])
+  } else{
+    trt_idx <- sample(1:27, 27, replace = T)
+    ctr_idx <- sample(1:27, 27, replace = T)
+    df2_b <- rbind(df2[df2$condition == "t",][trt_idx, ], df2[df2$condition == "c",][ctr_idx, ])
+  }
+  
+  # sample individual level data frame
+  # currently no sample by block involved
+  df1_b <- c()
+  # re-sample within each ad group
+  for (i in 1:nrow(df2_b)){
+    cdt <- df2_b$condition[i]
+    grp <- df2_b$group[i]
+    tmp <- df1 %>% filter(condition == cdt) %>% filter(group == grp)
+    idx <- sample(1:nrow(tmp), nrow(tmp), replace = T)
+    df1_b <- rbind(df1_b, tmp[idx, ])
+    
+  }
+  coefficients[[b]] <- glm_2stage(df1_b, df2_b)
+  
+}
 
 ```
 
