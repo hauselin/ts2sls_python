@@ -314,7 +314,7 @@ glm_2stage <- function(df1, df2){
   df <- left_join(df1, df2, by = c("group", "condition"))
   df$D_hat <- sapply(df$group_name, function(x) stage1_predicted[x])
   # set D_hat to 0 for control group (?)
-  df$D_hat <- ifelse(df$condition == "c", 0, df1$D_hat)
+  df$D_hat <- ifelse(df$condition == "c", 0, df$D_hat)
   
   # calculate residuals for residuals inclusion
   df$residuals <- sapply(df$group_name, function(x) stage1$residuals[x])
@@ -322,8 +322,6 @@ glm_2stage <- function(df1, df2){
   stage2 <- glm(Y ~ D_hat + residuals, df, family = "quasipoisson")
   return(summary(stage2)$coefficients)
 }
-
-
 
 # try to include fixed effects 
 df <- data.table(left_join(df1, df2))
