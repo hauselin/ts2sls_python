@@ -277,25 +277,37 @@ print(result)
 
 ```{r}
 library(MASS)  
+library(fixest)
+library(data.table)
 
-df1 <- fread("../twitterads/data_ukraine/users_treatment.csv")
-df1 <- df1[,c("id_str", "group", "condition")]
+df1 <- fread("campaign_data/users_treatment.csv")
+df1[, id_str := as.character(id_str)]
+df1 <- df1[, .(id_str, group, condition, block)]
+n_groups <- length(unique(df1$group))
+n_users <- n_distinct(df1$id_str)
+n_blocks <- n_distinct(df1$block)
+df1[, .N, block][, min(N)]  # check min no. of users per block
 
 set.seed(02139)
-Z <- rep(c(0, 1), 27)
-D <- rbeta(54,2,5) * 0.4
+Z <- rep(c(0, 1), n_groups)  # instrument (treatment assignment)
+D <- rbeta(n_groups * 2, 2,5) * 0.4  # reach
 D[Z == 0] <- 0
-Y <- floor(rbeta(17049, 1, 50) * 100)
-
+Y <- floor(rbeta(n_users, 1, 50) * 100)  # count outcome 
 df1$Y <- Y
+df1
 
+df1
 
-df2 <- data.frame(Z, D, rep(seq(1, 27), each = 2), rep(c("c", "t"), 27), seq(1, 54))
-names(df2) <- c("Z", "D", "group", "condition", "group_name")
+#  ad gruop data
+df2 <- data.frame(Z, D, 
+                  group = rep(seq(1, n_groups), each = 2), 
+                  condition = rep(c("c", "t"), n_groups), 
+                  group_name = seq(1, n_groups * 2))
+
 
 # currently no fixed effect involved
 glm_2stage <- function(df1, df2){
-  stage1 <- glm(D~Z, df2, family = "gaussian")
+  stage1 <- glm(D~Z, df2, family = "gaussian")  # these two lines assume 2-sample setup (do we want to do/assume this?)
   stage1_predicted <- predict.lm(stage1, df2)
   
   # estimate D_hat
@@ -310,6 +322,23 @@ glm_2stage <- function(df1, df2){
   stage2 <- glm(Y ~ D_hat + residuals, df, family = "quasipoisson")
   return(summary(stage2)$coefficients)
 }
+
+
+
+# try to include fixed effects 
+df <- data.table(left_join(df1, df2))
+df[, x1 := rnorm(.N)]
+glm_2sls <- function(df, only.coef = FALSE) {
+    # https://github.com/lrberge/fixest/issues/176
+    # stage1
+    stage1 <- feols(Y ~ x1 | block | D ~ Z, data = df)  
+    df$stage1_resids <- resid(summary(stage1, stage = 1))  # get residuals for residual inclusion/control function approach in stage2
+    
+    # stage2
+    stage2 <- feglm(Y ~ x1 + stage1_resids | block, data = df, family = "quasipoisson", only.coef = only.coef)
+    return(stage2)
+}
+glm_2sls(df)
 ```
 
 **Bootstrap**
@@ -321,11 +350,11 @@ pairwise <- TRUE
 for (b in 1:B){
   # sample ad group level data frame
   if (pairwise){
-    trt_idx <- sample(1:27, 27, replace = T)
+    trt_idx <- sample(1:n_groups, n_groups, replace = T)
     df2_b <- rbind(df2[df2$condition == "t",][trt_idx, ], df2[df2$condition == "c",][trt_idx, ])
   } else{
-    trt_idx <- sample(1:27, 27, replace = T)
-    ctr_idx <- sample(1:27, 27, replace = T)
+    trt_idx <- sample(1:n_groups, n_groups, replace = T)
+    ctr_idx <- sample(1:n_groups, n_groups, replace = T)
     df2_b <- rbind(df2[df2$condition == "t",][trt_idx, ], df2[df2$condition == "c",][ctr_idx, ])
   }
   

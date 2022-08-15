@@ -40,7 +40,7 @@ instruments <- "headroom"
 regs <- c("weight", "mpg")
 
 S1$mpg <- NA  # missing endogenous variable in sample1
-S2 <- df2[1:10, ] # reduce no .of observations in sample2 (maybe adgroup level data?)
+S2 <- df2[1:27, ] # reduce no .of observations in sample2 (maybe adgroup level data?)
 
 result <- ts2sls(S1, S2, y_var, regs, endo_var, instruments, verbose = T)
 print(result)
