@@ -323,21 +323,26 @@ glm_2stage <- function(df1, df2){
   return(summary(stage2)$coefficients)
 }
 
+
 # try to include fixed effects 
 df <- data.table(left_join(df1, df2))
 df[, x1 := rnorm(.N)]
 glm_2sls <- function(df, only.coef = FALSE) {
     # https://github.com/lrberge/fixest/issues/176
     # stage1
-    stage1 <- feols(Y ~ x1 | block | D ~ Z, data = df)  
-    df$stage1_resids <- resid(summary(stage1, stage = 1))  # get residuals for residual inclusion/control function approach in stage2
+    stage1 <- feols(Y ~ x1 | block | D ~ Z, data = df)  #technically does both stages 
+    df$stage1_resids <- resid(summary(stage1, stage = 1))  # get residuals from stage 1 for residual inclusion/control function approach in stage2
     
-    # stage2
-    stage2 <- feglm(Y ~ x1 + stage1_resids | block, data = df, family = "quasipoisson", only.coef = only.coef)
-    return(stage2)
+    # stage2 : for 2SRI, stage 2 is y ~ observed endo var + exo var + residuals from first stage (actual IV not included in the second stage)
+    stage2 <- feglm(Y ~ x1 + D + stage1_resids | block, data = df, family = "quasipoisson", only.coef = only.coef)
+    return(stage2) 
 }
+
 glm_2sls(df)
 ```
+
+From feols documentation on instrumental variables:
+* "For example , 'fml = y ~ x1 | x_end ~ x_inst' will use variables 'x1' and 'x_inst' in the first stage to explain 'x_endo'. Then will use the fitted value of 'x_endo' (which will be named 'fit_x_endo') and 'x1' to explain 'y' "
 
 **Bootstrap**
 
