@@ -1,4 +1,5 @@
 # https://github.com/lrberge/fixest/issues/176
+library(fixest)
 
 # Function to get the estimates
 ivpois_est = function(fml, data){
@@ -20,7 +21,7 @@ ivpois_est = function(fml, data){
     feglm.fit(y, RHS_control_fun, FE, family = "poisson")
 }
 
-# Function to get the VCOV
+# Function to get the VCOV via bootstrap
 ivpois_vcov = function(fml, data, nrep){
     # This is just to give an example, there are many BS schemes possible
     
@@ -28,12 +29,12 @@ ivpois_vcov = function(fml, data, nrep){
     all_coef = vector("list", nrep)
     
     for(i in 1:nrep){
-        all_coef[[i]] = coef(ivpois_est(fml, data[sample(n, n/2), ]))
+        all_coef[[i]] = coef(ivpois_est(fml, data[sample(n, n/2), ]))  # why sample only half?
     }
     
     all_coef_mat = do.call("rbind", all_coef)
     
-    var(all_coef_mat)
+    var(all_coef_mat)  # var-cov matrix of bootstrap coefs
 }
 
 # Function to get both the VCOV and the estimates
